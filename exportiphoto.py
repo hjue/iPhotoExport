@@ -49,7 +49,8 @@ class iPhotoLibrary(object):
     def __init__(self, albumDir, destDir, use_album=False, use_date=False,
                  use_faces=False, use_metadata=False, deconflict=False, quiet=False,
                  year_dir=False, import_missing=False, import_from_date=None, test=False,
-                 date_delimiter="-", ignore_time_delta=False, originals=False):
+                 date_delimiter="-", ignore_time_delta=False, originals=False,
+                 album_name=''):
         self.use_album = use_album
         self.use_date =  use_date
         self.use_faces = use_faces
@@ -68,6 +69,7 @@ class iPhotoLibrary(object):
         self.import_missing = import_missing
         self.ignore_time_delta = ignore_time_delta
         self.date_delimiter = date_delimiter
+        self.album_name = album_name
         self.originals=originals
         self.import_albums = []
 
@@ -242,12 +244,22 @@ class iPhotoLibrary(object):
         if self.use_album:
             targetName = "AlbumName"
             albums = [a for a in self.albums if
-                      a.get("Album Type", None) == "Regular"]
+                      a.get("Album Type", None) == "Regular" or a.get("Album Type", None) == "Flagged"]
         else:
             targetName = "RollName"
             albums = self.albums
         i = 0
         for folder in albums:
+            
+            if self.album_name :
+
+                if not folder.has_key('AlbumName'):
+                    continue
+                elif folder['AlbumName']!=self.album_name:
+                    continue
+                else:
+                    pass
+
             i += 1
             if self.use_album:
                 folderDate = None
@@ -537,6 +549,11 @@ if __name__ == '__main__':
                              help="use albums instead of events"
     )
 
+    option_parser.add_option("-n", "--album_name",
+                             action="store", type="string", dest="album_name",
+                             help="specify album name"
+    )
+
     option_parser.add_option("-q", "--quiet",
                              action="store_true", dest="quiet",
                              help="use quiet mode"
@@ -623,10 +640,19 @@ if __name__ == '__main__':
                                 test=options.test,
                                 date_delimiter=options.date_delimiter,
                                 ignore_time_delta=options.ignore_time_delta,
-                                originals=options.originals
+                                originals=options.originals,
+                                album_name= options.album_name
                                 )
         def copyImage(imageId, folderName, folderDate):
-            library.copyImage(imageId, folderName, folderDate)
+            # library.copyImage(imageId, folderName, folderDate)
+            try:
+                image = library.images[imageId]
+                if image['Comment'].strip() :
+                    name =  os.path.splitext(os.path.basename(image['OriginalPath']))[0]
+                    print image
+                    print image['Caption'],image['Comment'],name,image['Rating']
+            except KeyError:
+                raise iPhotoLibraryError, "Can't find image #%s" % imageId
     except iPhotoLibraryError, why:
         error(why[0])
     except KeyboardInterrupt:
